@@ -1,4 +1,5 @@
 #NICO
+alias nico='wget -O nico.sh -p /tmp/ https://raw.githubusercontent.com/nicolasnbn/script/refs/heads/main/nico.sh'
 
 #####################################################
 #POUR PYTHON
