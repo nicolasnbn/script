@@ -1,5 +1,5 @@
 #NICO
-alias nico='wget -O /tmp/nico.sh -p /tmp/ https://raw.githubusercontent.com/nicolasnbn/script/refs/heads/main/nico.sh && tail -10 /tmp/nico.sh;'
+alias nico='wget -O /tmp/nico.sh https://raw.githubusercontent.com/nicolasnbn/script/refs/heads/main/nico.sh && tail -10 /tmp/nico.sh'
 
 #####################################################
 #POUR PYTHON
@@ -42,6 +42,8 @@ alias jst='jedha-cli stop $(jsstatus)'
 ##############################
 ## EXECUTE
 #
+alias nico2='
+echo "
 if ! declare -f | grep -q "cln" ; then 
     cln(){
 #        awk '/#NICO/{print NR}' ~/.bashrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.bashrc);
@@ -51,4 +53,5 @@ fi;
 cln;
 #cat /tmp/nico.sh >> ~/.bashrc 
 cat /tmp/nico.sh >> ~/.zshrc ;
-#exec zsh;
+. ~/.zshrc;
+"';
