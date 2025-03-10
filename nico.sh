@@ -1,5 +1,5 @@
 #NICO
-alias nico='wget -O nico.sh -p /tmp/ https://raw.githubusercontent.com/nicolasnbn/script/refs/heads/main/nico.sh'
+alias nico='wget -O /tmp/nico.sh -p /tmp/ https://raw.githubusercontent.com/nicolasnbn/script/refs/heads/main/nico.sh'
 
 #####################################################
 #POUR PYTHON
@@ -48,7 +48,7 @@ if ! declare -f | grep -q "cln" ; then
         awk '/#NICO/{print NR}' ~/.bashrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.bashrc);
         awk '/#NICO/{print NR}' ~/.zshrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.zshrc);
     }
-fi
+fi;
 cln;
 cat /tmp/nico.sh >> ~/.bashrc &&  cat /tmp/nico.sh >> ~/.zshrc ;
-. ~/.zshrc 
+. ~/.zshrc ;
