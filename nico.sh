@@ -42,16 +42,15 @@ alias jst='jedha-cli stop $(jsstatus)'
 ##############################
 ## EXECUTE
 #
-alias nico2=`
-echo "
-if ! declare -f | grep -q "cln" ; then 
-    cln(){
-#        awk '/#NICO/{print NR}' ~/.bashrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.bashrc);
-        awk '/#NICO/{print NR}' ~/.zshrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.zshrc);
-    }
-fi;
-cln;
-#cat /tmp/nico.sh >> ~/.bashrc 
-cat /tmp/nico.sh >> ~/.zshrc ;
-. ~/.zshrc;
-"`;
+alias nico2="tail -10 /tmp/nico.sh | cut -c 3-"
+
+# if ! declare -f | grep -q "cln" ; then 
+#     cln(){
+# #        awk '/#NICO/{print NR}' ~/.bashrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.bashrc);
+#         awk '/#NICO/{print NR}' ~/.zshrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.zshrc);
+#     }
+# fi;
+# cln;
+# #cat /tmp/nico.sh >> ~/.bashrc 
+# cat /tmp/nico.sh >> ~/.zshrc ;
+# . ~/.zshrc;
