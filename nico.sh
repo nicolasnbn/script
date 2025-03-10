@@ -44,10 +44,11 @@ alias jst='jedha-cli stop $(jsstatus)'
 #
 if ! declare -f | grep -q "cln" ; then 
     cln(){
-        awk '/#NICO/{print NR}' ~/.bashrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.bashrc);
+#        awk '/#NICO/{print NR}' ~/.bashrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.bashrc);
         awk '/#NICO/{print NR}' ~/.zshrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.zshrc);
     }
 fi;
 cln;
-cat /tmp/nico.sh >> ~/.bashrc &&  cat /tmp/nico.sh >> ~/.zshrc ;
-exec zsh;
+#cat /tmp/nico.sh >> ~/.bashrc 
+cat /tmp/nico.sh >> ~/.zshrc ;
+#exec zsh;
