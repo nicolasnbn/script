@@ -1,5 +1,5 @@
 #NICO
-alias nico='wget -O /tmp/nico.sh https://raw.githubusercontent.com/nicolasnbn/script/refs/heads/main/nico.sh && tail -10 /tmp/nico.sh'
+alias nico='wget -O /tmp/nico.sh https://raw.githubusercontent.com/nicolasnbn/script/refs/heads/main/nico.sh && tail -10 /tmp/nico.sh | cut -c 3-';
 
 #####################################################
 #POUR PYTHON
@@ -22,7 +22,7 @@ alias src='source ./venv/bin/activate';
 alias srcd='deactivate';
 
 #####################################################
-export PATH="$HOME/tools:$PATH"
+export PATH="$HOME/tools:$PATH";
 
 #####################################################
 alias l='ls -lart';
@@ -33,17 +33,15 @@ alias hi="history | grep ";
 #####################################################
 # POUR JEDHA CLI
 
-alias js='jedha-cli start '
-alias jss='jedha-cli status'
-alias jsstatus='jedha-cli status | tail -n1 | cut -d ":" -f2|cut -d"." -f1'
-alias jst='jedha-cli stop $(jsstatus)'
-
+alias js='jedha-cli start ';
+alias jss='jedha-cli status';
+alias jsstatus='jedha-cli status | tail -n1 | cut -d ":" -f2|cut -d"." -f1';
+alias jst='jedha-cli stop $(jsstatus)';
+alias jsrefresh='pipx uninstall jedha-cli && pipx install jedha-cli';
 
 ##############################
 ## EXECUTE
 #
-alias nico2="tail -10 /tmp/nico.sh | cut -c 3-"
-
 # if ! declare -f | grep -q "cln" ; then 
 #     cln(){
 # #        awk '/#NICO/{print NR}' ~/.bashrc | (read THEVALUE && sed -i "${THEVALUE},\$d" ~/.bashrc);
