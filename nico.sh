@@ -29,6 +29,7 @@ alias l='ls -lart';
 alias rz='. ~/tools/rezetnet.sh';
 alias cl="clear";
 alias hi="history | grep ";
+alias his="history";
 
 #####################################################
 # POUR JEDHA CLI
