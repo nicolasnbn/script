@@ -34,7 +34,7 @@ alias his="history";
 #####################################################
 # POUR SNORT
 alias snorts='sudo snort -A console -c /etc/snort/snort.conf';
-alais snorte='sudo vi /etc/snort/rules/local.rules';
+alias snorte='sudo vi /etc/snort/rules/local.rules';
 alias snortk='sudo ps auxww | grep -E "etc/snort" | grep -v grep | grep -E "etc/snort" | awk '"'"'{print $2}'"'"' | xargs kill -9';
 
 #####################################################
