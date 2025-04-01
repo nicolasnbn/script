@@ -12,7 +12,7 @@
   waz;
 
 #####################################
-#           SERVER WAZUH        1/2 #
+#           SERVER WAZUH INITIAL    #
 #####################################
 
 # MISE À JOUR DISTRIB, TÉLÉCHARGEMENT INSTALLEUR ET LANCEMENT INSTALLEUR
@@ -29,6 +29,15 @@ sudo ./wazuh-install.sh -i -a ;
 # un petit check des services avec la commande UTILE CHECK SERVICES
 
 waz;
+
+==============================================================================================================
+==============================================================================================================
+# SETUP COUPLE SERVER / CIBLE LINUX 
+
+#####################################
+#           SERVER WAZUH        1/2 #
+#####################################
+
 
 # CREATION D'UN NOUVEL AGENT AVEC L'INTERFACE WEB
 
@@ -92,9 +101,18 @@ systemctl restart wazuh-agent;
 
 waz;
 
-
 ==============================================================================================================
+==============================================================================================================
+# SETUP COUPLE SERVER / CIBLE WINDOWS
 
+#####################################
+#           SERVER WAZUH        1/2 #
+#####################################
+# CREATION D'UN NOUVEL AGENT AVEC L'INTERFACE WEB
+
+# firefox -> https://localhost
+# Deploy new agent
+# choix cible , ip serveur , nom agent (toto,etc)
 
 #######################################
 #        MACHINE CIBLE WINDOWS     1/2#
@@ -111,7 +129,6 @@ WAZUH_MANAGER='IP SERVER WAZUH'
 WAZUH_AGENT_GROUP='default' 
 WAZUH_AGENT_NAME='agentwin' 
 WAZUH_REGISTRATION_SERVER='IP SERVER WAZUH'
-
 
 # DÉMARAGE AGENT
 
@@ -142,7 +159,6 @@ sudo /var/ossec/bin/manage_agents;
 # choix I
 # -> copier-coller clef generée par serveur
 
-
 ---RESTART AGENT
 NET STOP WazuhSvc
 NET START WazuhSvc
@@ -160,8 +176,10 @@ NET START WazuhSvc
 
 
 
+==============================================================================================================
+==============================================================================================================
+TODO
 
-history
 New-Item -Path "HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force...
 notepad.exe .\ossec.conf
 NET STOP WazuhSvc
