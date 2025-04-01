@@ -1,0 +1,172 @@
+#####################################
+# COMMANDES UTILES                  
+
+# -> IP LOCALE LINUX
+  ip -c a     
+  
+# -> IP LOCALE WINDOWS
+  ipconfig  
+  
+# -> CHECK SERVICES LINUX -> renvoit 3 services pour le serveur, 1 seul service pour la cible
+  alias waz="systemctl list-units | grep wazuh ";
+  waz;
+
+#####################################
+#           SERVER WAZUH        1/2 #
+#####################################
+
+# MISE À JOUR DISTRIB, TÉLÉCHARGEMENT INSTALLEUR ET LANCEMENT INSTALLEUR
+
+sudo apt update;
+sudo apt upgrade;
+sudo apt install curl unzip gnupg apt-transport-https lsb-release software-properties-common -y;
+curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh;
+chmod +x wazuh-install.sh;
+sudo ./wazuh-install.sh -i -a ;
+
+# à la fin retour du user admin et de son password long
+
+# un petit check des services avec la commande UTILE CHECK SERVICES
+
+waz;
+
+# CREATION D'UN NOUVEL AGENT AVEC L'INTERFACE WEB
+
+# firefox -> https://localhost
+# Deploy new agent
+# choix cible , ip serveur , nom agent (toto,etc)
+
+
+#####################################
+#        MACHINE CIBLE LINUX     1/2#
+#####################################
+
+### TÉLÉCHARGEMENT ET INSTALLATION VIA LA COMMANDE GENEREE PAR LE SERVEUR
+
+# !!!!! attention valeur de variables non contractuelle  !!!!
+
+wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.7.5-1_amd64.deb ;
+sudo WAZUH_MANAGER='IP SERVER WAZUH' ;
+sudo WAZUH_AGENT_GROUP='default' ;
+sudo WAZUH_AGENT_NAME='agenttoto' ;
+dpkg -i ./wazuh-agent_4.7.5-1_amd64.deb;
+
+# un petit check des services avec la commande UTILE CHECK SERVICES
+
+waz;
+
+#####################################
+#           SERVER WAZUH         2/2#
+#####################################
+
+### EXPORT CLEF POUR CIBLE (GÉNÉRATION D' UNE CLEF)
+
+sudo /var/ossec/bin/manage_agents;
+# choix A
+# -> nom choisi depuis le web 
+# -> ip cible
+# choix E
+# selection cible -> (001,002,etc)
+# -> generation clef pour cible
+
+#####################################
+#        MACHINE CIBLE LINUX     2/2#
+#####################################
+
+### IMPORT CLEF DEPUIS SERVER POUR COMMUNICATION
+
+sudo /var/ossec/bin/manage_agents;
+
+# choix I
+# -> copier-coller clef generée par serveur
+
+###  SI MAUVAISE IP ALORS EDITION FICHIER CONF AGENT
+
+sudo vi /var/ossec/etc/ossec.conf; # valeur ip serveur à changer
+
+### RESTART AGENT
+
+systemctl restart wazuh-agent;
+
+# un petit check des services avec la commande UTILE CHECK SERVICES
+
+waz;
+
+
+==============================================================================================================
+
+
+#######################################
+#        MACHINE CIBLE WINDOWS     1/2#
+#######################################
+
+### TÉLÉCHARGEMENT ET INSTALLATION VIA LA COMMANDE GENEREE PAR LE SERVEUR
+
+# !!!!! attention valeur de variables non contractuelle  !!!!
+
+Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.7.5-1.msi 
+-OutFile ${env.tmp}\wazuh-agent;
+msiexec.exe /i ${env.tmp}\wazuh-agent /q 
+WAZUH_MANAGER='IP SERVER WAZUH' 
+WAZUH_AGENT_GROUP='default' 
+WAZUH_AGENT_NAME='agentwin' 
+WAZUH_REGISTRATION_SERVER='IP SERVER WAZUH'
+
+
+# DÉMARAGE AGENT
+
+NET START WazuhSvc
+
+#####################################
+#           SERVER WAZUH         1/1#
+#####################################
+
+### EXPORT CLEF POUR CIBLE (GÉNÉRATION D' UNE CLEF)
+
+sudo /var/ossec/bin/manage_agents;
+# choix A
+# -> nom choisi depuis le web 
+# -> ip cible
+# choix E
+# selection cible -> (001,002,etc)
+# -> generation clef pour cible
+
+#######################################
+#        MACHINE CIBLE WINDOWS     2/2#
+#######################################
+
+### IMPORT CLEF DEPUIS SERVER POUR COMMUNICATION
+
+.\manage_agents.exe
+
+# choix I
+# -> copier-coller clef generée par serveur
+
+
+---RESTART AGENT
+NET STOP WazuhSvc
+NET START WazuhSvc
+
+###  SI MAUVAISE IP ALORS EDITION FICHIER CONF AGENT
+
+notepad.exe .\ossec.conf
+
+###RESTART AGENT
+NET STOP WazuhSvc
+NET START WazuhSvc
+
+
+
+
+
+
+
+history
+New-Item -Path "HKLM:\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -Force...
+notepad.exe .\ossec.conf
+NET STOP WazuhSvc
+NET START WazuhSvc
+"Hello jedha"
+notepad.exe .\ossec.conf
+.\win32ui.exe
+"Hello jedha"
