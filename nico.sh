@@ -38,6 +38,10 @@ alias snorte='sudo vi /etc/snort/rules/local.rules';
 alias snortk='sudo ps auxww | grep -E "etc/snort" | grep -v grep | grep -E "etc/snort" | awk '"'"'{print $2}'"'"' | xargs kill -9';
 
 #####################################################
+# POUR WAZUH
+alias waz="systemctl list-units | grep wazuh ";
+
+#####################################################
 # POUR JEDHA CLI
 
 alias js='jedha-cli start ';
