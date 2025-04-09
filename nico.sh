@@ -31,7 +31,7 @@ alias cl="clear";
 alias hi="history | grep ";
 alias his="history";
 alias alais=" alias ";
-alias namp="namp ";
+alias namp="nmap ";
 
 #####################################################
 # POUR SNORT
