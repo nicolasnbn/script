@@ -42,6 +42,11 @@ alias snortk='sudo ps auxww | grep -E "etc/snort" | grep -v grep | grep -E "etc/
 alias waz="systemctl list-units | grep wazuh ";
 
 #####################################################
+# POUR FLAMESHOT
+alias fs="flameshot gui ";
+
+
+#####################################################
 # POUR JEDHA CLI
 
 alias js='jedha-cli start ';
