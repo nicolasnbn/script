@@ -40,8 +40,20 @@ alias snorte='sudo vi /etc/snort/rules/local.rules';
 alias snortk='sudo ps auxww | grep -E "etc/snort" | grep -v grep | grep -E "etc/snort" | awk '"'"'{print $2}'"'"' | xargs kill -9';
 
 #####################################################
-# POUR WAZUH
-alias waz="systemctl list-units | grep wazuh ";
+# POUR WAZUH local admin/TA?F7?X*p39g1MakZVH+zS9sdcZ9T5Z0
+alias listwaz="systemctl list-units | grep wazuh ";
+alias tailwaz='sudo tail -f /var/ossec/logs/ossec.log';
+alias editwaz='sudo vi /var/ossec/etc/ossec.conf';
+alias wazr='sudo systemctl daemon-reload;sudo systemctl enable wazuh-agent;sudo systemctl start wazuh-agent;';
+alias wazstatus='sudo systemctl status wazuh-agent';
+alias wazstop='sudo systemctl start wazuh-agent';
+alias wasman='sudo /var/ossec/bin/manage_agents;';
+
+#####################################################
+# POUR WIREGUARD
+alias vpnup="wg-quick up nboucharin";
+alias vpndown="wg-quick down nboucharin";
+
 
 #####################################################
 # POUR FLAMESHOT

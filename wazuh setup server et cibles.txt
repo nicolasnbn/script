@@ -120,7 +120,7 @@ waz;
 
 ### TÉLÉCHARGEMENT ET INSTALLATION VIA LA COMMANDE GENEREE PAR LE SERVEUR
 
-# !!!!! attention valeur de variables non contractuelle  !!!!
+# !!!!! attention valeur de variables non contractuelles  !!!!
 
 Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.7.5-1.msi 
 -OutFile ${env.tmp}\wazuh-agent;
