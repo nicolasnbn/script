@@ -1,0 +1,2 @@
+echo "<html><meta http-equiv='refresh' content='0;url=/index.php'></html>" | sudo tee /var/www/html/generate_204
+sudo cp /var/www/html/generate_204 /var/www/html/hotspot-detect.html
