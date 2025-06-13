@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "[*] Restauration des règles iptables..."
+iptables-restore < /etc/iptables.ipv4.nat
+
+echo "[*] Démarrage des services..."
+systemctl restart dhcpcd
+systemctl start hostapd
+systemctl start dnsmasq
+systemctl start apache2
+
+echo "[*] Démarrage de tcpdump..."
+mkdir -p /home/pi/pineapple/captures
+tcpdump -i wlan1 -w /home/pi/pineapple/captures/capture_$(date +%F_%H-%M-%S).pcap &
+
+echo "[✓] WiFi Pineapple démarré. SSID: Free_WiFi"
