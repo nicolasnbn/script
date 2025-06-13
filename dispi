@@ -1,0 +1,31 @@
+#!/bin/bash
+
+echo "=== Configuration de l'écran 3.5\" GPIO SPI ==="
+
+# Vérification de la présence du framebuffer secondaire
+if [ ! -e /dev/fb1 ]; then
+    echo "[!] Framebuffer /dev/fb1 non détecté. Tentative de chargement du module fbtft_device..."
+
+    # Charger les modules nécessaires (si disponibles)
+    sudo modprobe fbtft_device name=pitft verbose=0
+    sleep 2
+fi
+
+# Vérifie à nouveau l'existence de /dev/fb1
+if [ ! -e /dev/fb1 ]; then
+    echo "[✘] L'écran 3.5\" n'a pas été détecté. Vérifie les connexions et le pilote."
+    exit 1
+fi
+
+# Rediriger tty1 (console principale) vers fb1 (écran GPIO)
+echo "[*] Redirection de la console vers l'écran 3.5\" (fb1)..."
+sudo con2fbmap 1 1
+
+# (Optionnel) Éteindre la sortie HDMI si elle est inutilisée
+read -rp "Souhaites-tu désactiver la sortie HDMI ? [o/N] : " DISABLE_HDMI
+if [[ "$DISABLE_HDMI" =~ ^[Oo]$ ]]; then
+    sudo tvservice -o
+    echo "[✔] Sortie HDMI désactivée."
+fi
+
+echo "[✔] Console redirigée avec succès sur l'écran 3.5\" (fb1)."
