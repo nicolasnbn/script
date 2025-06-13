@@ -4,14 +4,15 @@ DIR="/home/pi/pineapple"
 CAPTURES="$DIR/captures"
 DNSMASQ_CONF="$DIR/dnsmasq.conf"
 HOSTAPD_CONF="$DIR/hostapd.conf"
-INTERFACE="wlan1"
+INTERFACE_AP="wlan1"
+INTERFACE_WIFI="wlan0"
 
 start_ap() {
-  echo "[*] Configuration de l'interface $INTERFACE..."
-  sudo ip link set $INTERFACE down
-  sudo ip addr flush dev $INTERFACE
-  sudo ip addr add 10.0.0.1/24 dev $INTERFACE
-  sudo ip link set $INTERFACE up
+  echo "[*] Configuration de l'interface $INTERFACE_AP..."
+  sudo ip link set $INTERFACE_AP down
+  sudo ip addr flush dev $INTERFACE_AP
+  sudo ip addr add 10.0.0.1/24 dev $INTERFACE_AP
+  sudo ip link set $INTERFACE_AP up
 
   echo "[*] Démarrage du serveur web..."
   sudo cp -r "$DIR/www"/* /var/www/html/
@@ -28,9 +29,9 @@ stop_ap() {
   echo "[*] Arrêt de hostapd, dnsmasq et réinitialisation réseau..."
   sudo pkill hostapd
   sudo pkill dnsmasq
-  sudo ip link set $INTERFACE down
-  sudo ip addr flush dev $INTERFACE
-  sudo ip link set $INTERFACE up
+  sudo ip link set $INTERFACE_AP down
+  sudo ip addr flush dev $INTERFACE_AP
+  sudo ip link set $INTERFACE_AP up
   echo "[✔] Point d'accès arrêté."
 }
 
@@ -63,6 +64,40 @@ clean_data() {
   read -rp "Appuie sur Entrée pour continuer..."
 }
 
+configure_wlan0() {
+  echo "=== Configuration du Wi-Fi (wlan0) ==="
+  read -rp "SSID du réseau Wi-Fi : " SSID
+  read -rp "Mot de passe : " PASSWORD
+
+  # Générer un fichier wpa_supplicant temporaire
+  WPA_CONF="/tmp/wpa_supplicant.conf"
+  cat > "$WPA_CONF" << EOF
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=FR
+
+network={
+    ssid="$SSID"
+    psk="$PASSWORD"
+    key_mgmt=WPA-PSK
+}
+EOF
+
+  echo "[*] Application de la configuration..."
+  sudo ip link set $INTERFACE_WIFI down
+  sudo wpa_supplicant -B -i $INTERFACE_WIFI -c "$WPA_CONF"
+  sudo dhclient $INTERFACE_WIFI
+
+  echo "[*] Vérification de la connexion..."
+  sleep 5
+  if ping -c 2 -W 2 8.8.8.8 >/dev/null 2>&1; then
+    echo "[✔] wlan0 connecté avec succès à $SSID"
+  else
+    echo "[✘] Échec de la connexion. Vérifie tes identifiants et réessaie."
+  fi
+  read -rp "Appuie sur Entrée pour continuer..."
+}
+
 while true; do
   clear
   echo "=== MENU Wi-Fi Pineapple ==="
@@ -71,6 +106,7 @@ while true; do
   echo "3. Afficher les identifiants capturés"
   echo "4. Afficher les connexions/logs"
   echo "5. Supprimer les logs"
+  echo "6. Configurer connexion Wi-Fi locale (wlan0)"
   echo "0. Quitter"
   echo "============================="
   read -rp "Choix : " CHOICE
@@ -81,6 +117,7 @@ while true; do
     3) show_creds ;;
     4) show_logs ;;
     5) clean_data ;;
+    6) configure_wlan0 ;;
     0) echo "Bye !"; exit ;;
     *) echo "Choix invalide. Appuie sur Entrée pour réessayer." ; read ;;
   esac
