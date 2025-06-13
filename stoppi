@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "[*] Arrêt des services..."
+systemctl stop hostapd
+systemctl stop dnsmasq
+systemctl stop apache2
+
+echo "[*] Arrêt de tcpdump..."
+killall tcpdump 2>/dev/null || true
+
+echo "[*] Réinitialisation iptables..."
+iptables -F
+iptables -t nat -F
+
+echo "[✓] WiFi Pineapple arrêté proprement."
