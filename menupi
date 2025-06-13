@@ -1,0 +1,53 @@
+#!/bin/bash
+
+CAPTURE_DIR="/home/pi/pineapple/captures"
+CREDS_FILE="$CAPTURE_DIR/creds.txt"
+
+while true; do
+    clear
+    echo "==============================="
+    echo "    WiFi Pineapple - MENU"
+    echo "==============================="
+    echo "1. Démarrer le Pineapple"
+    echo "2. Arrêter le Pineapple"
+    echo "3. Voir les logs réseau (tcpdump)"
+    echo "4. Voir les identifiants capturés"
+    echo "5. Quitter"
+    echo "-------------------------------"
+    read -p "Choix > " choice
+
+    case $choice in
+        1)
+            echo "[+] Démarrage du WiFi Pineapple..."
+            sudo /home/pi/start_pineapple.sh
+            read -p "Appuie sur Entrée pour continuer..."
+            ;;
+        2)
+            echo "[+] Arrêt du WiFi Pineapple..."
+            sudo /home/pi/stop_pineapple.sh
+            read -p "Appuie sur Entrée pour continuer..."
+            ;;
+        3)
+            echo "[+] Derniers paquets capturés :"
+            sudo tcpdump -r $(ls -t $CAPTURE_DIR/*.pcap | head -n1) -n -c 10
+            read -p "Appuie sur Entrée pour continuer..."
+            ;;
+        4)
+            echo "[+] Identifiants capturés :"
+            if [[ -f "$CREDS_FILE" ]]; then
+                cat "$CREDS_FILE"
+            else
+                echo "Aucun identifiant capturé encore."
+            fi
+            read -p "Appuie sur Entrée pour continuer..."
+            ;;
+        5)
+            echo "[✓] Sortie du menu."
+            exit 0
+            ;;
+        *)
+            echo "[!] Choix invalide."
+            sleep 1
+            ;;
+    esac
+done
