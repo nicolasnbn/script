@@ -3,51 +3,68 @@
 CAPTURE_DIR="/home/pi/pineapple/captures"
 CREDS_FILE="$CAPTURE_DIR/creds.txt"
 
+echo "===== WiFi Pineapple CLI Controller ====="
+echo "Démarré le : $(date)"
+echo "-----------------------------------------"
+
 while true; do
-    clear
-    echo "==============================="
-    echo "    WiFi Pineapple - MENU"
-    echo "==============================="
-    echo "1. Démarrer le Pineapple"
-    echo "2. Arrêter le Pineapple"
-    echo "3. Voir les logs réseau (tcpdump)"
-    echo "4. Voir les identifiants capturés"
-    echo "5. Quitter"
-    echo "-------------------------------"
-    read -p "Choix > " choice
+    echo
+    echo "Que souhaites-tu faire ?"
+    echo "  1) ▶️  Démarrer le Pineapple"
+    echo "  2) ⏹️  Arrêter le Pineapple"
+    echo "  3) 🧪 Voir les 10 derniers paquets réseau (tcpdump)"
+    echo "  4) 🔐 Voir les identifiants capturés"
+    echo "  5) ❌ Quitter"
+    echo "-----------------------------------------"
+    read -p "Choix (1-5) : " choice
+    echo
 
     case $choice in
         1)
-            echo "[+] Démarrage du WiFi Pineapple..."
-            sudo /home/pi/start_pineapple.sh
-            read -p "Appuie sur Entrée pour continuer..."
+            echo "👉 Démarrage du WiFi Pineapple..."
+            if sudo /home/pi/start_pineapple.sh; then
+                echo "✅ Pineapple démarré avec succès."
+            else
+                echo "❌ Une erreur s'est produite lors du démarrage."
+            fi
+            echo "-----------------------------------------"
             ;;
         2)
-            echo "[+] Arrêt du WiFi Pineapple..."
-            sudo /home/pi/stop_pineapple.sh
-            read -p "Appuie sur Entrée pour continuer..."
+            echo "👉 Arrêt du WiFi Pineapple..."
+            if sudo /home/pi/stop_pineapple.sh; then
+                echo "✅ Pineapple arrêté proprement."
+            else
+                echo "❌ Erreur lors de l'arrêt."
+            fi
+            echo "-----------------------------------------"
             ;;
         3)
-            echo "[+] Derniers paquets capturés :"
-            sudo tcpdump -r $(ls -t $CAPTURE_DIR/*.pcap | head -n1) -n -c 10
-            read -p "Appuie sur Entrée pour continuer..."
+            echo "👉 Lecture des derniers paquets capturés..."
+            last_pcap=$(ls -t "$CAPTURE_DIR"/*.pcap 2>/dev/null | head -n1)
+            if [[ -f "$last_pcap" ]]; then
+                sudo tcpdump -r "$last_pcap" -n -c 10
+            else
+                echo "⚠️ Aucun fichier de capture trouvé dans $CAPTURE_DIR"
+            fi
+            echo "-----------------------------------------"
             ;;
         4)
-            echo "[+] Identifiants capturés :"
+            echo "👉 Lecture des identifiants capturés..."
             if [[ -f "$CREDS_FILE" ]]; then
                 cat "$CREDS_FILE"
             else
-                echo "Aucun identifiant capturé encore."
+                echo "⚠️ Aucun identifiant capturé pour le moment."
             fi
-            read -p "Appuie sur Entrée pour continuer..."
+            echo "-----------------------------------------"
             ;;
         5)
-            echo "[✓] Sortie du menu."
-            exit 0
+            echo "👋 Quitte le menu. À bientôt !"
+            echo "-----------------------------------------"
+            break
             ;;
         *)
-            echo "[!] Choix invalide."
-            sleep 1
+            echo "❌ Choix invalide. Entrez un chiffre entre 1 et 5."
+            echo "-----------------------------------------"
             ;;
     esac
 done
